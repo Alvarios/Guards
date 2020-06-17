@@ -2,12 +2,11 @@ package guards
 
 import (
 	"github.com/Alvarios/guards/config"
-	"github.com/Alvarios/guards/log"
+	"github.com/justinas/alice"
 	"github.com/rs/zerolog"
-	"net"
+	"github.com/rs/zerolog/hlog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -18,14 +17,13 @@ type Event struct {
 }
 
 type Guards struct {
-	*zerolog.Logger
-	Config config.LogConfig
+	C alice.Chain
 }
 
 /**
 //Create a new instance of guards
 */
-func NewLogger(config config.LogConfig) *Guards {
+func NewLogger(config config.LogConfig) *zerolog.Logger {
 	file, err := os.Create(config.LogFile())
 	if err != nil {
 		//		t.Errorf("Failed to create file : %s", err.Error())
@@ -39,9 +37,40 @@ func NewLogger(config config.LogConfig) *Guards {
 
 	zerolog.SetGlobalLevel(level)
 
-	logger := zerolog.New(file).With().Timestamp().Logger()
+	logger := zerolog.
+		New(file).
+		With().
+		//Str("role", "my-service").
+		//Str("host", host).
+		Timestamp().
+		Logger()
+	return &logger
+}
 
-	return &Guards{&logger, config}
+func NewGuards(logger *zerolog.Logger) *Guards {
+	c := alice.New()
+
+	// Install the logger handler with default output on the console
+	c = c.Append(hlog.NewHandler(*logger))
+
+	// Install some provided extra handler to set some request's context fields.
+	// Thanks to that handler, all our logs will come with some prepopulated fields.
+	c = c.Append(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
+		hlog.FromRequest(r).Info().
+			Str("method", r.Method).
+			Stringer("url", r.URL).
+			Int("status", status).
+			Int("size", size).
+			Dur("duration", duration).
+			Msg("")
+	}))
+
+	c = c.Append(hlog.RemoteAddrHandler("ip"))
+	c = c.Append(hlog.UserAgentHandler("user_agent"))
+	c = c.Append(hlog.RefererHandler("referer"))
+	c = c.Append(hlog.RequestIDHandler("req_id", "Request-Id"))
+
+	return &Guards{C: c}
 }
 
 var (
@@ -57,26 +86,21 @@ var (
 )
 
 // Invalid request
-func (g *Guards) InvalidRequest(err error, message string) {
-	g.Log().Str("service", g.Config.ServiceID()).
+func (g *Guards) InvalidRequest(r *http.Request, err error, message string) {
+	hlog.
+		FromRequest(r).
+		Error().
+		//Str("service", g.Config.ServiceID()).
 		Err(err).
 		Int("id", invalidRequest.Id).
 		Str("error_message", invalidRequest.StatusText).
 		Msg(message)
 }
 
-//Internal server error
-func (g *Guards) InternalErrorRequest(err error, message string) {
-	g.Log().
-		Str("service", g.Config.ServiceID()).
-		Err(err).Int("id", internalErrorRequest.Id).
-		Str("error_message", internalErrorRequest.StatusText).
-		Msg(message)
-}
-
+/*
 //Unauthorized request
 func (g *Guards) UnauthorizedRequest(err error, message string) {
-	g.Log().
+	g.Error().
 		Str("service", g.Config.ServiceID()).
 		Err(err).
 		Int("id", unauthorizedRequest.Id).
@@ -113,9 +137,12 @@ func (g *Guards) Middleware(next http.HandlerFunc) http.Handler {
 		le.Latency = time.Since(start)
 		//le.Status = w.Header().Get("StatusCode")
 		// status cide
+		context := context.Background()
+		ctx := g.With().Str("component", "module").Logger().WithContext(context)
 		if le.Status == 0 {
 			le.Status = http.StatusOK
 		}
+
 		g.Info().
 			Str("service", g.Config.ServiceID()).
 			Time("received_time", le.ReceivedTime).
@@ -137,4 +164,4 @@ func (g *Guards) Middleware(next http.HandlerFunc) http.Handler {
 	}
 
 	return http.HandlerFunc(fn) // wrapper
-}
+}*/

@@ -15,7 +15,8 @@ import (
 
 func InitializeEvent() Server {
 	logConfig := config.NewConfig()
-	guardsGuards := guards.NewLogger(logConfig)
+	logger := guards.NewLogger(logConfig)
+	guardsGuards := guards.NewGuards(logger)
 	router := mux.NewRouter()
 	server := NewServer(guardsGuards, router)
 	return server

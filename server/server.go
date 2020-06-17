@@ -21,18 +21,17 @@ func NewServer(log *guards.Guards, r *mux.Router) Server {
 }
 
 func (s *Server) Hello(w http.ResponseWriter, r *http.Request) {
-	s.Log.UnauthorizedRequest(nil, "created")
+	s.Log.InvalidRequest(r, nil, "created")
 }
 
 func (s *Server) Run() {
 
-	s.Router.Handle("/hello", s.Log.Middleware(s.Hello)).Methods("GET")
+	s.Router.Handle("/hello", s.Log.C.ThenFunc(s.Hello)).Methods("GET")
 	server := http.Server{
 		Handler:      s.Router,
 		Addr:         ":8080",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	s.Log.Info().Str("Server starting on port ", ":8080")
-	s.Log.Fatal().Err(server.ListenAndServe()).Str("server ", "Server down")
+	server.ListenAndServe()
 }
