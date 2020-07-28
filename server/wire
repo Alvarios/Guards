@@ -1,0 +1,13 @@
+package server
+
+import (
+	"github.com/Alvarios/guards/config"
+	"github.com/Alvarios/guards/guards"
+	"github.com/google/wire"
+	"github.com/gorilla/mux"
+)
+
+func InitializeEvent() Server {
+	wire.Build(NewServer, guards.NewLogger, config.NewConfig, guards.NewGuards, mux.NewRouter)
+	return Server{}
+}
