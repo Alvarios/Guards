@@ -26,7 +26,6 @@ type Guards struct {
 func NewLogger(config config.LogConfig) *zerolog.Logger {
 	file, err := os.Create(config.LogFile())
 	if err != nil {
-		//		t.Errorf("Failed to create file : %s", err.Error())
 		return nil
 	}
 
@@ -90,7 +89,6 @@ func (g *Guards) InvalidRequest(r *http.Request, err error, message string) {
 	hlog.
 		FromRequest(r).
 		Error().
-		//Str("service", g.Config.ServiceID()).
 		Err(err).
 		Int("id", invalidRequest.Id).
 		Str("error_message", invalidRequest.StatusText).
