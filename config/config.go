@@ -9,6 +9,7 @@ type LogConfig interface {
 type Config struct {
 }
 
+// create a new instance of Log
 func NewConfig() LogConfig {
 	return Config{}
 }
